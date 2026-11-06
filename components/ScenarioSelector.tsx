@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Scenario, Character, CharacterStats } from '../types';
 import { CthulhuIcon } from './icons';
+import { downloadSave, pickSaveFile, formatSavedAt, type SaveData } from '../services/saveGame';
 
 const combatRules = `
 戦闘ルール:
@@ -409,11 +410,28 @@ interface Props {
   existingCharacter: Character | null;
   onGoToCreator: () => void;
   onCharacterImport: (character: Character) => void;
+  savedGame: SaveData | null;
+  onResumeGame: (save: SaveData) => void;
+  onDeleteSave: () => void;
   selectedCompanionCount: number;
   setSelectedCompanionCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const ScenarioSelector: React.FC<Props> = ({ onScenarioSelect, existingCharacter, onGoToCreator, onCharacterImport, selectedCompanionCount, setSelectedCompanionCount }) => {
+const ScenarioSelector: React.FC<Props> = ({ onScenarioSelect, existingCharacter, onGoToCreator, onCharacterImport, savedGame, onResumeGame, onDeleteSave, selectedCompanionCount, setSelectedCompanionCount }) => {
+
+    const handleLoadSaveFile = async () => {
+        try {
+            const save = await pickSaveFile();
+            if (savedGame && !confirm(`ブラウザ内のセーブデータ（${savedGame.scenario.title}）は上書きされます。読み込みますか？`)) return;
+            onResumeGame(save);
+        } catch (error) {
+            alert(`セーブデータの読み込みに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        }
+    };
+
+    const handleDeleteSaveClick = () => {
+        if (confirm('セーブデータを削除します。この操作は取り消せません。よろしいですか？')) onDeleteSave();
+    };
     
     const handleExport = () => {
         if (!existingCharacter) return;
@@ -545,6 +563,41 @@ const ScenarioSelector: React.FC<Props> = ({ onScenarioSelect, existingCharacter
             </div>
         </div>
 
+        {savedGame && (
+            <div className="mb-6 bg-green-950/60 border border-green-700/60 rounded-lg p-4 backdrop-blur-sm">
+                <h2 className="text-xl font-display text-green-300 mb-1">続きから</h2>
+                <p className="text-gray-200">
+                    {savedGame.scenario.title}
+                    {savedGame.gameState === 'epilogue' && <span className="text-sm text-gray-400">（後日談）</span>}
+                    {savedGame.gameState === 'finished' && <span className="text-sm text-gray-400">（シナリオ終了）</span>}
+                </p>
+                <p className="text-sm text-gray-400 mb-3">
+                    {savedGame.character.name}　HP {savedGame.character.hp}/{savedGame.character.maxHp}　SAN {savedGame.character.sanity}/{savedGame.character.maxSanity}　{formatSavedAt(savedGame.savedAt)} 保存
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => onResumeGame(savedGame)}
+                        className="bg-green-700 hover:bg-green-600 text-white font-bold py-2 px-5 rounded transition duration-300 font-display tracking-wider"
+                    >
+                        続きから再開
+                    </button>
+                    <button
+                        onClick={() => downloadSave(savedGame)}
+                        className="bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 px-4 rounded transition duration-300 text-sm"
+                        title="セーブデータをファイルに保存します"
+                    >
+                        書き出す
+                    </button>
+                    <button
+                        onClick={handleDeleteSaveClick}
+                        className="text-red-400 hover:text-red-300 py-2 px-3 text-sm ml-auto"
+                    >
+                        削除
+                    </button>
+                </div>
+            </div>
+        )}
+
         <div className="mb-6">
             <h2 className="text-xl font-display text-center text-gray-300 mb-3">AIコンパニオンの人数</h2>
             <div className="flex justify-center gap-4 bg-gray-800/80 border border-gray-700 rounded-lg p-4">
@@ -586,6 +639,13 @@ const ScenarioSelector: React.FC<Props> = ({ onScenarioSelect, existingCharacter
                 title="ファイルからキャラクターデータを読み込みます"
             >
                 インポート
+            </button>
+            <button
+                onClick={handleLoadSaveFile}
+                className="bg-green-800 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300"
+                title="書き出したセーブデータファイルから再開します"
+            >
+                セーブ読み込み
             </button>
         </div>
         <h2 className="text-2xl font-display text-center text-gray-300 mb-6">シナリオ選択</h2>

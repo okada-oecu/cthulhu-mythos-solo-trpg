@@ -2,7 +2,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Character, LogEntry, AIResponse, Scenario, Enemy } from './types';
 import { GameState, Role } from './types';
-import { startChatSession, sendMessage, type GameSession } from './services/geminiService';
+import { startChatSession, sendMessage, getChatHistory, type GameSession } from './services/geminiService';
+import { loadSave, writeSave, clearSave, downloadSave, type SaveData, type SavableState } from './services/saveGame';
 import CharacterSheet from './components/CharacterSheet';
 import GameLog from './components/GameLog';
 import ActionBar from './components/ActionBar';
@@ -62,6 +63,38 @@ const App: React.FC = () => {
     const gameLogRef = useRef<HTMLDivElement>(null);
     const gameStateRef = useRef(gameState);
     const chatSessionRef = useRef<GameSession | null>(null);
+    const [savedGame, setSavedGame] = useState<SaveData | null>(() => loadSave());
+    const saveFailedWarnedRef = useRef(false);
+
+    const buildSaveData = useCallback((): SaveData | null => {
+        const savable = [GameState.Playing, GameState.Epilogue, GameState.Finished];
+        if (!savable.includes(gameState) || !scenario || !playerCharacter || !chatSessionRef.current) return null;
+        return {
+            version: 1,
+            savedAt: new Date().toISOString(),
+            scenario,
+            character: playerCharacter,
+            gameLog,
+            enemies,
+            isInCombat,
+            numberOfCompanions,
+            gameState: gameState as SavableState,
+            scenarioResult,
+            history: getChatHistory(chatSessionRef.current),
+        };
+    }, [gameState, scenario, playerCharacter, gameLog, enemies, isInCombat, numberOfCompanions, scenarioResult]);
+
+    // Auto-save whenever a turn settles (never mid-request while Loading)
+    useEffect(() => {
+        const data = buildSaveData();
+        if (!data) return;
+        if (writeSave(data)) {
+            setSavedGame(data);
+        } else if (!saveFailedWarnedRef.current) {
+            saveFailedWarnedRef.current = true;
+            alert('ブラウザの保存容量が足りず、自動セーブできませんでした。画面上部の「セーブを書き出す」でファイルに保存してください。');
+        }
+    }, [buildSaveData]);
 
     useEffect(() => {
         if (playerCharacter) {
@@ -90,6 +123,43 @@ const App: React.FC = () => {
         chatSessionRef.current = null;
         // playerCharacter is preserved for the next game
     }, []);
+
+    // "セッションを完全に終了": the story is over, so the save goes too
+    const handleFinishSession = useCallback(() => {
+        clearSave();
+        setSavedGame(null);
+        handleEndGame();
+    }, [handleEndGame]);
+
+    const handleReturnToTitle = useCallback(() => {
+        if (gameStateRef.current === GameState.Loading) return;
+        setSavedGame(loadSave());
+        handleEndGame();
+    }, [handleEndGame]);
+
+    const handleResumeGame = useCallback((save: SaveData) => {
+        setScenario(save.scenario);
+        setPlayerCharacter(save.character);
+        setGameLog([...save.gameLog, { role: Role.System, content: 'セーブデータから再開しました。' }]);
+        setEnemies(save.enemies || []);
+        setIsInCombat(!!save.isInCombat);
+        setNumberOfCompanions(save.numberOfCompanions || 1);
+        setScenarioResult(save.scenarioResult);
+        setCurrentTrack(save.scenario.bgm || null);
+        chatSessionRef.current = startChatSession(save.character, save.scenario, 'gemini-2.5-flash', save.numberOfCompanions || 1, save.history);
+        saveFailedWarnedRef.current = false;
+        setGameState(save.gameState);
+    }, []);
+
+    const handleDeleteSave = useCallback(() => {
+        clearSave();
+        setSavedGame(null);
+    }, []);
+
+    const handleExportSave = useCallback(() => {
+        const data = buildSaveData();
+        if (data) downloadSave(data);
+    }, [buildSaveData]);
 
     const handleStartEpilogue = useCallback(() => {
         setGameState(GameState.Epilogue);
@@ -164,6 +234,9 @@ const App: React.FC = () => {
     }, [handleEndGame]);
     
     const handleScenarioSelect = (selectedScenario: Scenario, createNew: boolean, companionsCount: number) => {
+        if (savedGame && !confirm(`新しいシナリオを始めると、途中のセーブデータ（${savedGame.scenario.title}）は上書きされます。よろしいですか？\n残したい場合は先に「書き出す」でファイルに保存してください。`)) {
+            return;
+        }
         setScenario(selectedScenario);
         setNumberOfCompanions(companionsCount); // Set companion count here as well
         if (createNew || !playerCharacter) {
@@ -414,12 +487,30 @@ const App: React.FC = () => {
 
     return (
         <>
-            {gameState === GameState.ScenarioSelection && <ScenarioSelector onScenarioSelect={handleScenarioSelect} existingCharacter={playerCharacter} onGoToCreator={handleGoToCreator} onCharacterImport={handleCharacterImport} selectedCompanionCount={numberOfCompanions} setSelectedCompanionCount={setNumberOfCompanions} />}
+            {gameState === GameState.ScenarioSelection && <ScenarioSelector onScenarioSelect={handleScenarioSelect} existingCharacter={playerCharacter} onGoToCreator={handleGoToCreator} onCharacterImport={handleCharacterImport} savedGame={savedGame} onResumeGame={handleResumeGame} onDeleteSave={handleDeleteSave} selectedCompanionCount={numberOfCompanions} setSelectedCompanionCount={setNumberOfCompanions} />}
             {gameState === GameState.Setup && <CharacterCreator onCharacterCreate={handleCharacterCreate} isStartingGame={isCreatingForScenario} existingCharacter={isEditingCharacter ? playerCharacter : null} />}
             
             {(gameState !== GameState.ScenarioSelection && gameState !== GameState.Setup) && (
                 <div className="bg-gray-900 text-gray-300 min-h-screen flex flex-col p-4 md:p-6 lg:p-8 relative" style={{backgroundImage: `url('https://www.transparenttextures.com/patterns/dark-matter.png')`}}>
                     <MusicPlayer track={currentTrack} />
+                    <div className="flex flex-wrap justify-end gap-2 mb-2 pr-20">
+                        <button
+                            onClick={handleExportSave}
+                            disabled={gameState === GameState.Loading}
+                            className="text-xs bg-gray-800/80 hover:bg-gray-700 disabled:opacity-40 text-gray-300 border border-gray-600 rounded px-3 py-1"
+                            title="現在の進行状況をファイルに保存します"
+                        >
+                            セーブを書き出す
+                        </button>
+                        <button
+                            onClick={handleReturnToTitle}
+                            disabled={gameState === GameState.Loading}
+                            className="text-xs bg-gray-800/80 hover:bg-gray-700 disabled:opacity-40 text-gray-300 border border-gray-600 rounded px-3 py-1"
+                            title="進行状況は自動セーブされています"
+                        >
+                            タイトルへ（自動セーブ済み）
+                        </button>
+                    </div>
                     <header className="text-center mb-4">
                         <h1 className="text-3xl md:text-4xl font-display text-gray-100">
                             {scenario?.title || 'クトゥルフ神話TRPG'}
@@ -461,7 +552,7 @@ const App: React.FC = () => {
                                         後日談を続ける
                                     </button>
                                     <button
-                                        onClick={handleEndGame}
+                                        onClick={handleFinishSession}
                                         className="w-full bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300 font-display text-xl tracking-wider"
                                     >
                                         セッションを完全に終了

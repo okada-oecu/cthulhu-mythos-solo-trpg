@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, type Chat } from '@google/genai';
+import { GoogleGenAI, Type, type Chat, type Content } from '@google/genai';
 import type { Character, AIResponse, Scenario } from '../types';
 
 // The game runs entirely in the browser (GitHub Pages), so each player uses
@@ -28,6 +28,8 @@ export interface GameSession {
   scenario: Scenario;
   numberOfCompanions: number;
   modelName: string;
+  // Conversation to continue from when resuming a saved game
+  history?: Content[];
   chat?: Chat;
 }
 
@@ -138,6 +140,7 @@ export const startChatSession = (
   scenario: Scenario,
   modelName: string,
   numberOfCompanions: number,
+  history?: Content[],
 ): GameSession => {
   return {
     sessionId: `cthulhu_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -145,8 +148,12 @@ export const startChatSession = (
     scenario,
     modelName: modelName || 'gemini-2.5-flash',
     numberOfCompanions,
+    history,
   };
 };
+
+export const getChatHistory = (session: GameSession): Content[] =>
+  session.chat ? session.chat.getHistory() : session.history || [];
 
 const getChat = (session: GameSession): Chat => {
   if (session.chat) return session.chat;
@@ -157,7 +164,7 @@ const getChat = (session: GameSession): Chat => {
   const ai = new GoogleGenAI({ apiKey });
   session.chat = ai.chats.create({
     model: session.modelName,
-    history: [
+    history: session.history?.length ? session.history : [
       {
         role: 'user',
         parts: [{ text: `ゲームを開始します。これがプレイヤーキャラクターのデータです。\n${buildCharacterSheet(session.character)}` }],
