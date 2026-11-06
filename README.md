@@ -1,20 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# クトゥルフ神話 ソロTRPG
 
-# Run and deploy your AI Studio app
+AIゲームマスターとAIの相棒と一緒に遊ぶ、一人用クトゥルフ神話TRPGです。
 
-This contains everything you need to run your app locally.
+**▶ 遊ぶ: https://okada-oecu.github.io/cthulhu-mythos-solo-trpg/**
 
-View your app in AI Studio: https://ai.studio/apps/8f6a2c3b-abf8-4b1e-9fd4-c67484d8a50b
+初回アクセス時に Google Gemini の APIキーを入力してください（[Google AI Studio](https://aistudio.google.com/apikey) で無料で取得できます）。キーはブラウザ内にだけ保存されます。
 
-## Run Locally
+## ローカルで動かす
 
-**Prerequisites:**  Node.js
+```bash
+npm install
+npm run dev
+```
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+`main` ブランチに push すると GitHub Actions が自動で GitHub Pages に公開します。

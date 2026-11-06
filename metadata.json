@@ -1,6 +1,0 @@
-{
-  "name": "Cthulhu Mythos Solo TRPG",
-  "description": "An immersive single-player Cthulhu Mythos TRPG experience where you partner with an AI companion, guided by an AI Game Master. Unravel dark mysteries, confront cosmic horrors, and struggle to maintain your sanity in a world where humanity is insignificant.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
