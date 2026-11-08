@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Character, LogEntry, AIResponse, Scenario, Enemy } from './types';
 import { GameState, Role } from './types';
-import { startChatSession, sendMessage, getChatHistory, type GameSession } from './services/geminiService';
+import { startChatSession, sendMessage, getChatHistory, MODEL_NAME, type GameSession } from './services/geminiService';
 import { loadSave, writeSave, clearSave, downloadSave, type SaveData, type SavableState } from './services/saveGame';
 import CharacterSheet from './components/CharacterSheet';
 import GameLog from './components/GameLog';
@@ -146,7 +146,7 @@ const App: React.FC = () => {
         setNumberOfCompanions(save.numberOfCompanions || 1);
         setScenarioResult(save.scenarioResult);
         setCurrentTrack(save.scenario.bgm || null);
-        chatSessionRef.current = startChatSession(save.character, save.scenario, 'gemini-2.5-flash', save.numberOfCompanions || 1, save.history);
+        chatSessionRef.current = startChatSession(save.character, save.scenario, MODEL_NAME, save.numberOfCompanions || 1, save.history);
         saveFailedWarnedRef.current = false;
         setGameState(save.gameState);
     }, []);
@@ -199,7 +199,7 @@ const App: React.FC = () => {
         setNumberOfCompanions(companionsCount); // Set companion count
 
         try {
-            const modelName = 'gemini-2.5-flash';
+            const modelName = MODEL_NAME;
             
             chatSessionRef.current = startChatSession(refreshedCharacter, selectedScenario, modelName, companionsCount);
             
@@ -223,7 +223,7 @@ const App: React.FC = () => {
             
             let userMessage = `ゲームの開始に失敗しました。\n\nエラー: ${message}`;
             if (message.includes("APIの利用上限") || message.toLowerCase().includes("quota")) {
-                userMessage = `ゲームの開始に失敗しました: APIの利用上限に達したようです。\n\nこのアプリは高速・高性能で無料利用枠の広い「Gemini 2.5 Flash」モデルを使用しています。\n\nしばらく時間をおいてから、もう一度シナリオを開始してください。`;
+                userMessage = `ゲームの開始に失敗しました: APIの利用上限に達したようです。\n\nこのアプリは高速で無料利用枠のある「Gemini 3.5 Flash-Lite」モデルを使用しています。\n\nしばらく時間をおいてから、もう一度シナリオを開始してください。`;
             }
             
             alert(userMessage);

@@ -557,7 +557,7 @@ const ScenarioSelector: React.FC<Props> = ({ onScenarioSelect, existingCharacter
         <div className="mb-6 bg-gray-800/80 border border-gray-700 rounded-lg p-4 backdrop-blur-sm">
              <div className="text-center text-sm font-serif p-3 rounded-lg border bg-yellow-900 border-yellow-700 text-yellow-300 bg-opacity-30 border-opacity-50">
                  <span className="text-yellow-200">
-                    <strong>重要:</strong> このゲームは高品質な「Gemini 2.5 Pro」モデルを使用しています。そのため、無料利用枠のAPIリクエスト制限が非常に厳しくなっています。<br />
+                    <strong>重要:</strong> このゲームは高速な「Gemini 3.5 Flash-Lite」モデルを使用しています。無料利用枠には1分・1日あたりのリクエスト数に上限があります。<br />
                     「APIの利用上限」というエラーが頻繁に表示される場合は、APIキーを従量課金プランにアップグレードするか、しばらく時間をおいてからプレイを再開してください。
                 </span>
             </div>

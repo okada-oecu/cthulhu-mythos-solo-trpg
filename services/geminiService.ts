@@ -5,6 +5,9 @@ import type { Character, AIResponse, Scenario } from '../types';
 // their own Gemini API key, kept only in this browser's localStorage.
 const API_KEY_STORAGE = 'gemini_api_key';
 
+// Model used for the AI game master (one place to change it)
+export const MODEL_NAME = 'gemini-3.5-flash-lite';
+
 export const getApiKey = (): string => {
   try {
     return localStorage.getItem(API_KEY_STORAGE) || '';
@@ -146,7 +149,7 @@ export const startChatSession = (
     sessionId: `cthulhu_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     character,
     scenario,
-    modelName: modelName || 'gemini-2.5-flash',
+    modelName: modelName || MODEL_NAME,
     numberOfCompanions,
     history,
   };
